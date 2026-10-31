@@ -10,17 +10,31 @@
 <body>
 <header>
   <img src="/static/logo.png" alt="WallaceAI">
-  <div class="hr"><button class="ghost" id="menu" type="button">☰ History</button>&nbsp;<span class="count" id="count"></span><button class="ghost" id="new">New chat</button>&nbsp;<button class="ghost" id="acct">Sign in</button></div>
+  <div class="hr"><button class="ghost" id="menu" type="button">☰ History</button>&nbsp;<a class="ghost" id="rbx" target="_blank" rel="noopener noreferrer" hidden>Follow on Roblox</a>&nbsp;<span class="count" id="count"></span><button class="ghost" id="new">New chat</button>&nbsp;<button class="ghost" id="acct">Sign in</button></div>
 </header>
-<div class="app"><aside id="side"><button class="ghost newside" id="newside" type="button">+ New chat</button><div id="list"></div><p class="note">History is saved on this device.</p></aside><div class="col"><main id="main"><div class="wrap" id="log"></div></main>
+<div class="app"><aside id="side"><button class="ghost newside" id="newside" type="button">+ New chat</button><a class="ghost newside" id="rbx2" target="_blank" rel="noopener noreferrer" hidden>Follow me on Roblox</a><div id="list"></div><p class="note">History is saved on this device.</p></aside><div class="col"><main id="main"><div class="wrap" id="log"></div></main>
 <form class="in" id="form">
   <div class="row">
     <textarea id="box" rows="1" placeholder="Ask WallaceAI about Lua, Python, or anything else…" autofocus></textarea>
     <button class="send" id="send" type="submit">Send</button>
   </div>
-  <p class="note">WallaceAI can make mistakes. Check important code before you ship it. Signed-in chats are stored and may be reviewed by the site owner.</p>
+  <p class="note">WallaceAI can make mistakes. Check important code before you ship it. Chats are stored and may be reviewed by the site owner.</p>
 </form>
 </div></div>
+<div class="overlay" id="limit" hidden>
+  <div class="card">
+    <h2>Out of messages</h2>
+    <p class="sub" id="lmsg"></p>
+    <div id="bonus" hidden>
+      <p class="sub">Follow me on Roblox to get 10 more messages.</p>
+      <a class="send btn" id="rlink" target="_blank" rel="noopener noreferrer">Follow me on Roblox</a>
+      <button class="ghost wide" id="claim" type="button">I followed, give me 10 more</button>
+      <p class="err" id="cerr"></p>
+    </div>
+    <button class="ghost wide" id="lsign" type="button" hidden>Sign up with email instead</button>
+    <button class="link" id="lclose" type="button" style="color:var(--mute)">Not now</button>
+  </div>
+</div>
 <div class="overlay" id="modal" hidden>
   <div class="card">
     <h2 id="mtitle"></h2>
