@@ -52,14 +52,14 @@ input.s{margin:0 0 10px}
   <div class="grid" id="kpis"></div>
   <div class="card" style="margin-bottom:14px"><h2>Messages, last 7 days</h2><div class="bars" id="bars"></div><div class="lbl" id="lbl"></div></div>
   <div class="two">
-   <div class="card"><h2>Accounts (click an email to read their chats)</h2><input class="s" id="search" placeholder="Search emails…"><table id="users"></table></div>
+   <div class="card"><h2>Click a name to read their chats</h2><div style="display:flex;gap:8px;margin-bottom:10px"><button id="tabU">Accounts</button><button id="tabV">Visitors</button></div><input class="s" id="search" placeholder="Search emails…"><table id="users"></table></div>
    <div><div class="card" style="margin-bottom:12px"><h2>Most active today</h2><table id="top"></table></div>
    <div class="card"><h2>Settings in use</h2><table id="cfg"></table></div></div>
   </div>
  </div>
  <div id="viewer" hidden>
   <div class="top"><h1 id="vtitle"></h1><button id="back">← Back</button></div>
-  <p class="sub">Private. Only signed-in chats are logged.</p>
+  <p class="sub">Private. Visitor chat logs are deleted automatically after 30 days.</p>
   <div class="two vw"><div class="card"><h2>Conversations</h2><div id="convos"></div></div>
   <div class="card"><h2 id="ctitle">Messages</h2><div id="msgs"></div></div></div>
  </div>
@@ -89,9 +89,15 @@ async function login(){
 }
 $('go').onclick=login;
 $('pw').addEventListener('keydown',e=>{if(e.key==='Enter')login();});
-let allUsers=[],chatRows=[],cur='';
-async function loadUsers(){const r=await fetch('/api/admin/users');if(r.ok){allUsers=await r.json();drawUsers();}}
+let allUsers=[],allVis=[],chatRows=[],cur='',tab='users';
+async function loadUsers(){const r=await fetch('/api/admin/users'),v=await fetch('/api/admin/visitors');if(r.ok)allUsers=await r.json();if(v.ok)allVis=await v.json();drawUsers();}
 function drawUsers(){
+  $('tabU').style.borderColor=tab==='users'?'var(--accent)':'';$('tabV').style.borderColor=tab==='visitors'?'var(--accent)':'';
+  if(tab==='visitors'){
+    const q2=$('search').value.trim().toLowerCase(),vl=allVis.filter(v=>v.id.slice(5).includes(q2));
+    $('users').innerHTML=vl.length?vl.map(v=>`<tr><td><button class="lnk" data-open="${esc(v.id)}">Visitor ${esc(v.id.slice(5,11))}</button><div class="sub">last active ${new Date(v.last*1000).toLocaleString()} · ${v.messages} logged messages</div></td><td><button data-del="${esc(v.id)}">Delete chats</button></td></tr>`).join(''):'<tr><td class="sub">No visitor chats yet.</td></tr>';
+    return;
+  }
   const q=$('search').value.trim().toLowerCase(),l=allUsers.filter(u=>u.email.toLowerCase().includes(q));
   $('users').innerHTML=l.length?l.map(u=>`<tr><td><button class="lnk" data-open="${esc(u.email)}">${esc(u.email)}</button><div class="sub">joined ${new Date(u.created*1000).toLocaleDateString()} · ${u.messages} logged messages</div></td><td><button data-del="${esc(u.email)}">Delete</button></td></tr>`).join(''):'<tr><td class="sub">No accounts found.</td></tr>';
 }
@@ -106,7 +112,7 @@ async function openUser(email){
   const r=await fetch('/api/admin/chats?email='+encodeURIComponent(email));
   if(!r.ok){load();return;}
   chatRows=await r.json();
-  $('vtitle').textContent=email;$('panel').hidden=true;$('viewer').hidden=false;
+  $('vtitle').textContent=email.startsWith('anon:')?'Visitor '+email.slice(5,11):email;$('panel').hidden=true;$('viewer').hidden=false;
   const g={};chatRows.forEach(m=>{(g[m.convo]=g[m.convo]||[]).push(m);});
   const ids=Object.keys(g).sort((a,b)=>g[b][0].created-g[a][0].created);
   $('convos').innerHTML=ids.length?ids.map(id=>{const f=g[id].find(m=>m.role==='user')||g[id][0];return `<div class="ci" data-c="${esc(id)}"><div>${esc(f.content.slice(0,60))}</div><div class="sub">${new Date(g[id][0].created*1000).toLocaleString()} · ${g[id].length} msgs</div></div>`;}).join(''):'<p class="sub">No logged chats for this account yet.</p>';
@@ -116,12 +122,14 @@ async function openUser(email){
 $('convos').addEventListener('click',e=>{const c=e.target.closest('.ci');if(c)showConvo(c.dataset.c);});
 $('back').onclick=()=>{$('viewer').hidden=true;$('panel').hidden=false;loadUsers();};
 $('search').addEventListener('input',drawUsers);
+$('tabU').onclick=()=>{tab='users';drawUsers();};
+$('tabV').onclick=()=>{tab='visitors';drawUsers();};
 $('refresh').onclick=()=>{load();loadUsers();};
 $('out').onclick=async()=>{await fetch('/api/admin/logout',{method:'POST'});load();};
 $('users').addEventListener('click',async e=>{
   const op=e.target.dataset&&e.target.dataset.open; if(op){openUser(op);return;}
   const em=e.target.dataset&&e.target.dataset.del; if(!em)return;
-  if(!confirm('Delete account '+em+' and their saved chats?'))return;
+  if(!confirm(em.startsWith('anon:')?'Delete this visitor\'s saved chats?':'Delete account '+em+' and their saved chats?'))return;
   await fetch('/api/admin/delete_user',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:em})});
   load();loadUsers();
 });
