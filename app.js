@@ -7,7 +7,7 @@ const SUGGEST = [
   "Plan my week and prioritize my tasks"
 ];
 let history = [], busy = false, signedIn = false, mode = 'signup', pending = '';
-let rbx = '', claimed = false;
+let rbx = '', claimed = false, imagesOn = false;
 const KEY = 'wallace_chats_v1';
 let chats = [], currentId = null;
 try { chats = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (_) { chats = []; }
@@ -62,6 +62,7 @@ async function refresh() {
     rbx = s.roblox_url || ''; claimed = !!s.bonus_claimed;
     ['rbx', 'rbx2'].forEach(id => { const a = $(id); if (rbx) { a.href = rbx; a.hidden = false; } else a.hidden = true; });
     $('rlink').href = rbx || '#';
+    imagesOn = !!s.images; $('imgbtn').hidden = !imagesOn;
   } catch (_) {}
 }
 function openModal(msg) {
@@ -83,8 +84,30 @@ function setMode(m) {
   $('msubmit').textContent = m === 'signup' ? 'Sign up' : 'Log in';
   $('mswitch').textContent = m === 'signup' ? 'Already have an account? Log in' : 'New here? Sign up';
 }
+async function genImage(prompt) {
+  if (busy || !prompt.trim()) return;
+  if (!signedIn) { pending = ''; openModal('Sign up with your email to create images.'); return; }
+  if (!history.length) log.innerHTML = '';
+  history.push({ role: 'user', content: 'Generate an image: ' + prompt });
+  if (!currentId) currentId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const u = add('user', '🎨 ' + esc(prompt));
+  const ai = add('ai', '<span class="dots"></span>');
+  busy = true; send.disabled = true; box.value = ''; box.style.height = 'auto';
+  try {
+    const r = await fetch('/api/image', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt, convo: currentId }) });
+    const j = await r.json().catch(() => ({}));
+    if (r.status === 402) { history.pop(); u.row.remove(); ai.row.remove(); if (!history.length) hero(); await refresh(); openLimit(true); throw 'handled'; }
+    if (!r.ok) { history.pop(); ai.body.textContent = j.error || 'Image generation failed. Please try again.'; throw 'handled'; }
+    const src = 'data:image/jpeg;base64,' + j.image;
+    ai.body.innerHTML = `<img class="gen" alt="${esc(prompt)}" src="${src}"><a class="ghost" download="wallaceai-image.jpg" href="${src}">Save image</a>`;
+    history.push({ role: 'assistant', content: '[Generated an image: ' + prompt + ']' });
+    saveChat();
+  } catch (e) { if (e !== 'handled') { history.pop(); ai.body.textContent = 'Something went wrong. Please try again.'; } }
+  busy = false; send.disabled = false; refresh(); box.focus();
+}
 async function ask(text) {
   if (busy || !text.trim()) return;
+  if (/^\/image\s+/i.test(text)) return genImage(text.replace(/^\/image\s+/i, ''));
   if (!history.length) log.innerHTML = '';
   history.push({ role: 'user', content: text });
   if (!currentId) currentId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -135,6 +158,11 @@ $('list').addEventListener('click', e => {
 });
 $('acct').addEventListener('click', async () => {
   if (signedIn) { await fetch('/api/logout', { method: 'POST' }); refresh(); } else openModal('');
+});
+$('imgbtn').addEventListener('click', () => {
+  const t = box.value.trim();
+  if (!t) { box.placeholder = 'Describe the image you want, then press 🎨 again…'; box.focus(); return; }
+  genImage(t);
 });
 $('claim').addEventListener('click', async () => {
   $('cerr').textContent = '';
