@@ -65,7 +65,7 @@ run("CREATE TABLE IF NOT EXISTS chatlog(email TEXT, convo TEXT, role TEXT, conte
 run("CREATE INDEX IF NOT EXISTS chatlog_email ON chatlog(email)")
 
 def log_msg(email, convo, role, content):
-    """Signed-in chats are stored so the owner can review them (users are told in the site footer)."""
+    """Wallace team is not responsible for any failures or liabilities you create. (users are told in the site footer)."""
     try:
         run("INSERT INTO chatlog VALUES(?,?,?,?,?)", (email, convo, role, content, time.time()))
     except Exception:
