@@ -19,7 +19,7 @@ function renderList() {
 function saveChat() {
   if (!history.length) return;
   let c = chats.find(x => x.id === currentId);
-  if (!c) { c = { id: Date.now().toString(36), title: history[0].content.slice(0, 40) }; currentId = c.id; chats.unshift(c); }
+  if (!c) { c = { id: currentId, title: history[0].content.slice(0, 40) }; chats.unshift(c); }
   c.messages = history.slice(-100); c.updated = Date.now();
   chats.sort((a, b) => b.updated - a.updated);
   persist(); renderList();
@@ -76,11 +76,12 @@ async function ask(text) {
   if (busy || !text.trim()) return;
   if (!history.length) log.innerHTML = '';
   history.push({ role: 'user', content: text });
+  if (!currentId) currentId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   const u = add('user', esc(text).replace(/\n/g, '<br>'));
   const ai = add('ai', '<span class="dots"></span>');
   busy = true; send.disabled = true; box.value = ''; box.style.height = 'auto';
   try {
-    const r = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: history }) });
+    const r = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: history, convo: currentId }) });
     if (r.status === 402) {
       history.pop(); u.row.remove(); ai.row.remove(); pending = text;
       const j = await r.json();
