@@ -7,6 +7,7 @@ const SUGGEST = [
   "Plan my week and prioritize my tasks"
 ];
 let history = [], busy = false, signedIn = false, mode = 'signup', pending = '';
+let rbx = '', claimed = false;
 const KEY = 'wallace_chats_v1';
 let chats = [], currentId = null;
 try { chats = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (_) { chats = []; }
@@ -58,6 +59,9 @@ async function refresh() {
     signedIn = s.signed_in;
     $('count').textContent = signedIn ? `${s.remaining} left today` : `${s.remaining} free message${s.remaining === 1 ? '' : 's'} left`;
     $('acct').textContent = signedIn ? 'Log out' : 'Sign in';
+    rbx = s.roblox_url || ''; claimed = !!s.bonus_claimed;
+    ['rbx', 'rbx2'].forEach(id => { const a = $(id); if (rbx) { a.href = rbx; a.hidden = false; } else a.hidden = true; });
+    $('rlink').href = rbx || '#';
   } catch (_) {}
 }
 function openModal(msg) {
@@ -65,6 +69,13 @@ function openModal(msg) {
   $('merr').textContent = '';
   setMode(mode);
   $('modal').hidden = false; $('email').focus();
+}
+function openLimit(signed) {
+  $('lmsg').textContent = signed ? "You've reached today's message limit." : "You've used your 10 free messages.";
+  $('bonus').hidden = !(rbx && !claimed);
+  $('lsign').hidden = signed;
+  $('cerr').textContent = '';
+  $('limit').hidden = false;
 }
 function setMode(m) {
   mode = m;
@@ -86,8 +97,7 @@ async function ask(text) {
       history.pop(); u.row.remove(); ai.row.remove(); pending = text;
       const j = await r.json();
       if (!history.length) hero();
-      openModal(j.signed_in ? 'You have reached today\'s message limit. Come back tomorrow!' : 'You have used your 10 free messages. Sign up with your email to keep chatting.');
-      if (j.signed_in) $('modal').hidden = true, ai.body.textContent = '';
+      await refresh(); openLimit(j.signed_in);
       throw 'limit';
     }
     if (r.status === 503) { history.pop(); ai.body.textContent = 'WallaceAI has hit its free daily capacity. Please come back tomorrow!'; throw 'limit'; }
@@ -126,6 +136,16 @@ $('list').addEventListener('click', e => {
 $('acct').addEventListener('click', async () => {
   if (signedIn) { await fetch('/api/logout', { method: 'POST' }); refresh(); } else openModal('');
 });
+$('claim').addEventListener('click', async () => {
+  $('cerr').textContent = '';
+  const r = await fetch('/api/claim_bonus', { method: 'POST' });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) { $('cerr').textContent = j.error || 'Could not add messages.'; return; }
+  $('limit').hidden = true; await refresh();
+  if (pending) { const t = pending; pending = ''; ask(t); }
+});
+$('lsign').addEventListener('click', () => { $('limit').hidden = true; openModal('Sign up with your email to keep chatting.'); });
+$('lclose').addEventListener('click', () => { $('limit').hidden = true; });
 $('mswitch').addEventListener('click', () => setMode(mode === 'signup' ? 'login' : 'signup'));
 $('mclose').addEventListener('click', () => { $('modal').hidden = true; });
 $('mform').addEventListener('submit', async e => {
