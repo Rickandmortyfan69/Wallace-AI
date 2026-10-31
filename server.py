@@ -11,9 +11,9 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 load_dotenv()
-MODEL = os.getenv("MODEL", "llama-3.3-70b-versatile")
+MODEL = os.getenv("MODEL", "openai/gpt-oss-120b")
 BASE_URL = os.getenv("BASE_URL", "https://api.groq.com/openai/v1")
-GLOBAL_DAILY_CAP = int(os.getenv("GLOBAL_DAILY_CAP", 200))  # stay under your free quota
+GLOBAL_DAILY_CAP = int(os.getenv("GLOBAL_DAILY_CAP", 100))  # stay under your free quota
 FREE_MESSAGES = int(os.getenv("FREE_MESSAGES", 10))       # per visitor, lifetime
 MEMBER_DAILY = int(os.getenv("MEMBER_DAILY", 50))         # per signed-up user, per day
 IP_DAILY_CAP = int(os.getenv("IP_DAILY_CAP", 40))         # anti-abuse, per IP, per day
@@ -158,7 +158,7 @@ def chat(req: Request, body: Chat):
     key, used, limit = quota(req)
     if used >= limit:
         return JSONResponse({"error": "limit", "signed_in": bool(current_user(req))}, 402)
-    msgs = [{"role": m.role, "content": m.content[:8000]} for m in body.messages[-10:]
+    msgs = [{"role": m.role, "content": m.content[:8000]} for m in body.messages[-8:]
             if m.role in ("user", "assistant") and m.content.strip()]
     if not msgs or msgs[-1]["role"] != "user":
         return JSONResponse({"error": "bad request"}, 400)
@@ -173,8 +173,9 @@ def chat(req: Request, body: Chat):
 
     def gen():
         try:
+            extra = {"reasoning_effort": "low"} if "gpt-oss" in MODEL else {}  # keeps replies fast
             stream = client.chat.completions.create(
-                model=MODEL, max_tokens=1000, stream=True,
+                model=MODEL, max_tokens=2000, stream=True, extra_body=extra,
                 messages=[{"role": "system", "content": SYSTEM}] + msgs)
             for chunk in stream:
                 if chunk.choices and chunk.choices[0].delta.content:
