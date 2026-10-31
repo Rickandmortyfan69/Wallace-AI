@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>WallaceAI · CEO Panel</title>
+<style>
+:root{color-scheme:dark;--bg:#07070a;--panel:#111116;--line:#24242c;--text:#f4f2ec;--mute:#9a9aa8;--accent:#a9a9bd}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;padding:20px}
+.wrap{max-width:980px;margin:0 auto}
+h1{font-size:22px;margin:0}h2{font-size:15px;margin:0 0 10px;color:var(--mute);font-weight:600}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;gap:10px}
+button{font:inherit;cursor:pointer;background:none;border:1px solid var(--line);color:var(--text);border-radius:10px;padding:6px 14px}
+button:hover{border-color:var(--accent)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+.big{font-size:30px;font-weight:700}.sub{color:var(--mute);font-size:13px}
+table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:7px 6px;border-bottom:1px solid var(--line);font-size:14px;overflow-wrap:anywhere}
+th{color:var(--mute);font-weight:500}
+.bars{display:flex;align-items:flex-end;gap:8px;height:120px}
+.bar{flex:1;background:var(--accent);border-radius:6px 6px 0 0;min-height:2px;position:relative}
+.bar span{position:absolute;top:-18px;left:0;right:0;text-align:center;font-size:12px;color:var(--mute)}
+.lbl{display:flex;gap:8px;margin-top:6px}.lbl div{flex:1;text-align:center;font-size:11px;color:var(--mute)}
+.login{max-width:340px;margin:12vh auto}
+input{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:11px;font:inherit;margin:10px 0}
+.err{color:#ff8a8a;min-height:20px;font-size:13px}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+[hidden]{display:none!important}
+.lnk{border:0;padding:0;color:var(--text);text-decoration:underline;text-underline-offset:3px;text-align:left}
+.lnk:hover{color:var(--accent)}
+input.s{margin:0 0 10px}
+.ci{padding:9px 10px;border-radius:10px;cursor:pointer;border:1px solid transparent}
+.ci:hover,.ci.on{background:var(--bg);border-color:var(--line)}
+.m{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:10px;white-space:pre-wrap;overflow-wrap:anywhere}
+.m.user{background:var(--bg)}.m .who{color:var(--mute);font-size:12px;margin-bottom:4px}
+.vw{grid-template-columns:260px 1fr!important}
+@media(max-width:700px){.vw{grid-template-columns:1fr!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+ <div id="login" class="login card">
+  <h1>CEO Panel</h1><p class="sub">Owner access only.</p>
+  <input id="pw" type="password" placeholder="Admin password" autocomplete="current-password">
+  <p class="err" id="err"></p>
+  <button id="go" style="width:100%">Enter</button>
+ </div>
+ <div id="panel" hidden>
+  <div class="top"><h1>WallaceAI · CEO Panel</h1><div><button id="refresh">Refresh</button> <button id="out">Log out</button></div></div>
+  <div class="grid" id="kpis"></div>
+  <div class="card" style="margin-bottom:14px"><h2>Messages, last 7 days</h2><div class="bars" id="bars"></div><div class="lbl" id="lbl"></div></div>
+  <div class="two">
+   <div class="card"><h2>Accounts (click an email to read their chats)</h2><input class="s" id="search" placeholder="Search emails…"><table id="users"></table></div>
+   <div><div class="card" style="margin-bottom:12px"><h2>Most active today</h2><table id="top"></table></div>
+   <div class="card"><h2>Settings in use</h2><table id="cfg"></table></div></div>
+  </div>
+ </div>
+ <div id="viewer" hidden>
+  <div class="top"><h1 id="vtitle"></h1><button id="back">← Back</button></div>
+  <p class="sub">Private. Only signed-in chats are logged.</p>
+  <div class="two vw"><div class="card"><h2>Conversations</h2><div id="convos"></div></div>
+  <div class="card"><h2 id="ctitle">Messages</h2><div id="msgs"></div></div></div>
+ </div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+async function load(){
+  const r=await fetch('/api/admin/stats');
+  if(r.status===401){$('login').hidden=false;$('panel').hidden=true;return;}
+  const s=await r.json();
+  $('login').hidden=true;if($('viewer').hidden)$('panel').hidden=false;
+  const k=(a,b,c)=>`<div class="card"><div class="sub">${a}</div><div class="big">${b}</div><div class="sub">${c||''}</div></div>`;
+  $('kpis').innerHTML=k('Total accounts',s.total_users,'+'+s.new_7d+' in the last 7 days')+k('Messages today',s.messages_today,'of '+s.daily_cap+' daily cap')+k('Visitors who chatted',s.visitors,'all time');
+  const max=Math.max(1,...s.daily.map(d=>d.n));
+  $('bars').innerHTML=s.daily.map(d=>`<div class="bar" style="height:${Math.round(d.n/max*100)}%"><span>${d.n}</span></div>`).join('');
+  $('lbl').innerHTML=s.daily.map(d=>`<div>${esc(d.day.slice(5))}</div>`).join('');
+  $('top').innerHTML=s.top_today.length?s.top_today.map(u=>`<tr><td>${esc(u.email)}</td><td>${u.n}</td></tr>`).join(''):'<tr><td class="sub">No activity yet today.</td></tr>';
+  const c=s.config;
+  $('cfg').innerHTML=[['Model',c.model],['Free messages',c.free_messages],['Member daily',c.member_daily],['IP daily cap',c.ip_daily_cap],['Site daily cap',s.daily_cap]].map(x=>`<tr><th>${x[0]}</th><td>${esc(x[1])}</td></tr>`).join('');
+}
+async function login(){
+  $('err').textContent='';
+  const r=await fetch('/api/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:$('pw').value})});
+  if(!r.ok){$('err').textContent=(await r.json()).error||'Error';return;}
+  $('pw').value='';load();loadUsers();
+}
+$('go').onclick=login;
+$('pw').addEventListener('keydown',e=>{if(e.key==='Enter')login();});
+let allUsers=[],chatRows=[],cur='';
+async function loadUsers(){const r=await fetch('/api/admin/users');if(r.ok){allUsers=await r.json();drawUsers();}}
+function drawUsers(){
+  const q=$('search').value.trim().toLowerCase(),l=allUsers.filter(u=>u.email.toLowerCase().includes(q));
+  $('users').innerHTML=l.length?l.map(u=>`<tr><td><button class="lnk" data-open="${esc(u.email)}">${esc(u.email)}</button><div class="sub">joined ${new Date(u.created*1000).toLocaleDateString()} · ${u.messages} logged messages</div></td><td><button data-del="${esc(u.email)}">Delete</button></td></tr>`).join(''):'<tr><td class="sub">No accounts found.</td></tr>';
+}
+function showConvo(id){
+  const rows=chatRows.filter(r=>r.convo===id);
+  document.querySelectorAll('.ci').forEach(e=>e.classList.toggle('on',e.dataset.c===id));
+  $('ctitle').textContent=rows.length?('Messages · '+new Date(rows[0].created*1000).toLocaleString()):'Messages';
+  $('msgs').innerHTML=rows.map(r=>`<div class="m ${r.role}"><div class="who">${r.role==='user'?'User':'WallaceAI'} · ${new Date(r.created*1000).toLocaleTimeString()}</div>${esc(r.content)}</div>`).join('');
+}
+async function openUser(email){
+  cur=email;
+  const r=await fetch('/api/admin/chats?email='+encodeURIComponent(email));
+  if(!r.ok){load();return;}
+  chatRows=await r.json();
+  $('vtitle').textContent=email;$('panel').hidden=true;$('viewer').hidden=false;
+  const g={};chatRows.forEach(m=>{(g[m.convo]=g[m.convo]||[]).push(m);});
+  const ids=Object.keys(g).sort((a,b)=>g[b][0].created-g[a][0].created);
+  $('convos').innerHTML=ids.length?ids.map(id=>{const f=g[id].find(m=>m.role==='user')||g[id][0];return `<div class="ci" data-c="${esc(id)}"><div>${esc(f.content.slice(0,60))}</div><div class="sub">${new Date(g[id][0].created*1000).toLocaleString()} · ${g[id].length} msgs</div></div>`;}).join(''):'<p class="sub">No logged chats for this account yet.</p>';
+  $('msgs').innerHTML='';$('ctitle').textContent='Messages';
+  if(ids.length)showConvo(ids[0]);
+}
+$('convos').addEventListener('click',e=>{const c=e.target.closest('.ci');if(c)showConvo(c.dataset.c);});
+$('back').onclick=()=>{$('viewer').hidden=true;$('panel').hidden=false;loadUsers();};
+$('search').addEventListener('input',drawUsers);
+$('refresh').onclick=()=>{load();loadUsers();};
+$('out').onclick=async()=>{await fetch('/api/admin/logout',{method:'POST'});load();};
+$('users').addEventListener('click',async e=>{
+  const op=e.target.dataset&&e.target.dataset.open; if(op){openUser(op);return;}
+  const em=e.target.dataset&&e.target.dataset.del; if(!em)return;
+  if(!confirm('Delete account '+em+' and their saved chats?'))return;
+  await fetch('/api/admin/delete_user',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:em})});
+  load();loadUsers();
+});
+load();loadUsers();
+</script>
+</body>
+</html>
