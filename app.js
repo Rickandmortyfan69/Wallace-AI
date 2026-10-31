@@ -7,6 +7,30 @@ const SUGGEST = [
   "Help me plan a productive week"
 ];
 let history = [], busy = false, signedIn = false, mode = 'signup', pending = '';
+const KEY = 'wallace_chats_v1';
+let chats = [], currentId = null;
+try { chats = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (_) { chats = []; }
+function persist() { try { localStorage.setItem(KEY, JSON.stringify(chats.slice(0, 50))); } catch (_) {} }
+function renderList() {
+  $('list').innerHTML = chats.length
+    ? chats.map(c => `<div class="item${c.id === currentId ? ' active' : ''}" data-id="${c.id}"><span class="t">${esc(c.title)}</span><button class="del" data-del title="Delete chat">✕</button></div>`).join('')
+    : '<p class="empty">Your chats will show up here.</p>';
+}
+function saveChat() {
+  if (!history.length) return;
+  let c = chats.find(x => x.id === currentId);
+  if (!c) { c = { id: Date.now().toString(36), title: history[0].content.slice(0, 40) }; currentId = c.id; chats.unshift(c); }
+  c.messages = history.slice(-100); c.updated = Date.now();
+  chats.sort((a, b) => b.updated - a.updated);
+  persist(); renderList();
+}
+function openChat(id) {
+  const c = chats.find(x => x.id === id); if (!c || busy) return;
+  currentId = id; history = c.messages.slice(); log.innerHTML = '';
+  history.forEach(m => add(m.role === 'user' ? 'user' : 'ai', m.role === 'user' ? esc(m.content).replace(/\n/g, '<br>') : render(m.content)));
+  main.scrollTop = main.scrollHeight; renderList(); $('side').classList.remove('open');
+}
+function newChat() { if (busy) return; currentId = null; history = []; hero(); renderList(); $('side').classList.remove('open'); }
 
 const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 function render(text) {
@@ -73,6 +97,7 @@ async function ask(text) {
       acc += dec.decode(value, { stream: true }); ai.body.innerHTML = render(acc); main.scrollTop = main.scrollHeight;
     }
     history.push({ role: 'assistant', content: acc });
+    saveChat();
   } catch (e) {
     if (e !== 'limit') { history.pop(); ai.body.textContent = 'Something went wrong. Please try again.'; }
   }
@@ -86,7 +111,17 @@ log.addEventListener('click', e => {
   const b = e.target.closest('[data-copy]');
   if (b) { navigator.clipboard.writeText(b.closest('.pre').querySelector('code').textContent).then(() => { b.textContent = 'Copied'; setTimeout(() => b.textContent = 'Copy', 1400); }); }
 });
-$('new').addEventListener('click', () => { history = []; hero(); });
+$('new').addEventListener('click', newChat);
+$('newside').addEventListener('click', newChat);
+$('menu').addEventListener('click', () => $('side').classList.toggle('open'));
+$('list').addEventListener('click', e => {
+  const it = e.target.closest('.item'); if (!it) return;
+  if (e.target.closest('[data-del]')) {
+    if (!confirm('Delete this chat?')) return;
+    chats = chats.filter(c => c.id !== it.dataset.id); persist();
+    if (currentId === it.dataset.id) newChat(); else renderList();
+  } else openChat(it.dataset.id);
+});
 $('acct').addEventListener('click', async () => {
   if (signedIn) { await fetch('/api/logout', { method: 'POST' }); refresh(); } else openModal('');
 });
@@ -100,4 +135,4 @@ $('mform').addEventListener('submit', async e => {
   $('modal').hidden = true; $('pw').value = ''; await refresh();
   if (pending) { const t = pending; pending = ''; ask(t); }
 });
-hero(); refresh();
+hero(); renderList(); refresh();
