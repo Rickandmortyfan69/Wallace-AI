@@ -10,9 +10,9 @@
 <body>
 <header>
   <img src="/static/logo.png" alt="WallaceAI">
-  <div class="hr"><span class="count" id="count"></span><button class="ghost" id="new">New chat</button>&nbsp;<button class="ghost" id="acct">Sign in</button></div>
+  <div class="hr"><button class="ghost" id="menu" type="button">☰ History</button>&nbsp;<span class="count" id="count"></span><button class="ghost" id="new">New chat</button>&nbsp;<button class="ghost" id="acct">Sign in</button></div>
 </header>
-<main id="main"><div class="wrap" id="log"></div></main>
+<div class="app"><aside id="side"><button class="ghost newside" id="newside" type="button">+ New chat</button><div id="list"></div><p class="note">Chats are saved on this device only.</p></aside><div class="col"><main id="main"><div class="wrap" id="log"></div></main>
 <form class="in" id="form">
   <div class="row">
     <textarea id="box" rows="1" placeholder="Ask WallaceAI about Lua, Python, or anything else…" autofocus></textarea>
@@ -20,6 +20,7 @@
   </div>
   <p class="note">WallaceAI can make mistakes. Check important code before you ship it.</p>
 </form>
+</div></div>
 <div class="overlay" id="modal" hidden>
   <div class="card">
     <h2 id="mtitle"></h2>
