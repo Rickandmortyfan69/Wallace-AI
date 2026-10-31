@@ -182,6 +182,7 @@ def chat(req: Request, body: Chat):
         except RateLimitError:
             yield "\n\nWallaceAI is very busy right now. Please try again in a minute."
         except Exception:
+            import traceback; traceback.print_exc()  # shows the real reason in Render > Logs
             yield "\n\nSorry, WallaceAI hit an error. Please try again."
 
     resp = StreamingResponse(gen(), media_type="text/plain; charset=utf-8")
