@@ -3,8 +3,8 @@ const log = $('log'), box = $('box'), send = $('send'), main = $('main');
 const SUGGEST = [
   "Write a Lua script that makes a Roblox part spin",
   "Explain Python list comprehensions with examples",
-  "Debug this: my Python loop never ends",
-  "Help me plan a productive week"
+  "Help me break a big project into clear steps",
+  "Plan my week and prioritize my tasks"
 ];
 let history = [], busy = false, signedIn = false, mode = 'signup', pending = '';
 const KEY = 'wallace_chats_v1';
@@ -44,7 +44,7 @@ function render(text) {
   }).join('');
 }
 function hero() {
-  log.innerHTML = `<div class="hero"><h1>What can I help you build today?</h1><p>WallaceAI is your coding and everyday assistant, fluent in Lua and Python.</p><div class="chips">${SUGGEST.map(s => `<button class="chip" type="button">${esc(s)}</button>`).join('')}</div></div>`;
+  log.innerHTML = `<div class="hero"><h1>What can I help you build today?</h1><p>Your friendly assistant for Lua, Python, problem solving, and getting organized.</p><div class="chips">${SUGGEST.map(s => `<button class="chip" type="button">${esc(s)}</button>`).join('')}</div></div>`;
 }
 function add(role, html) {
   const d = document.createElement('div'); d.className = 'msg ' + role;
