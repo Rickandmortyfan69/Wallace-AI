@@ -69,3 +69,9 @@ aside{width:260px;flex:none;border-right:1px solid var(--line);overflow-y:auto;p
  aside{position:fixed;left:0;top:0;bottom:0;z-index:15;padding-top:calc(12px + env(safe-area-inset-top,0px));transform:translateX(-100%);transition:transform .2s}
  aside.open{transform:none;box-shadow:0 0 0 100vmax rgba(0,0,0,.6)}
 }
+
+a.ghost{text-decoration:none;display:inline-block}
+a.newside{display:block;text-align:center;width:100%;margin-bottom:10px;color:var(--text)}
+.wide{width:100%;margin-top:8px}
+.btn{display:block;text-align:center;text-decoration:none;padding:11px;border-radius:11px;margin-top:6px}
+@media(max-width:760px){#rbx{display:none!important}}
