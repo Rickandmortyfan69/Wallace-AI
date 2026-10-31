@@ -1,7 +1,7 @@
 """WallaceAI backend: keeps your API key private, enforces the free-message limit,
 and handles email sign-up. Run: uvicorn server:app"""
 import base64, hashlib, hmac, os, re, secrets, sqlite3, time, uuid
-from datetime import date
+from datetime import date, timedelta
 
 from openai import OpenAI, RateLimitError
 from dotenv import load_dotenv
@@ -20,6 +20,7 @@ IP_DAILY_CAP = int(os.getenv("IP_DAILY_CAP", 40))         # anti-abuse, per IP, 
 SECRET = os.getenv("SECRET_KEY") or secrets.token_hex(32)  # set a fixed one in production!
 DB_PATH = os.getenv("DB_PATH", "wallace.db")
 SECURE = os.getenv("PRODUCTION", "0") == "1"
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "")  # owner panel is OFF unless this is set
 
 SYSTEM = (
     "You are WallaceAI, a polished and friendly professional assistant. Your tone is warm, courteous, clear and "
@@ -42,24 +43,33 @@ if DATABASE_URL:
     import psycopg2
     IntegrityError = psycopg2.IntegrityError
 
-    def run(sql, params=(), one=False):
+    def run(sql, params=(), one=False, all=False):
         con = psycopg2.connect(DATABASE_URL, connect_timeout=15)  # fresh connection: survives Neon sleeping
         try:
             with con, con.cursor() as cur:
                 cur.execute(sql.replace("?", "%s"), params)
-                return cur.fetchone() if one else None
+                return cur.fetchone() if one else (cur.fetchall() if all else None)
         finally:
             con.close()
 else:
     IntegrityError = sqlite3.IntegrityError
     _db = sqlite3.connect(DB_PATH, check_same_thread=False)
 
-    def run(sql, params=(), one=False):
+    def run(sql, params=(), one=False, all=False):
         cur = _db.execute(sql, params); _db.commit()
-        return cur.fetchone() if one else None
+        return cur.fetchone() if one else (cur.fetchall() if all else None)
 
 run("CREATE TABLE IF NOT EXISTS users(email TEXT PRIMARY KEY, pw TEXT, created DOUBLE PRECISION)")
 run("CREATE TABLE IF NOT EXISTS usage(k TEXT PRIMARY KEY, n INTEGER)")
+run("CREATE TABLE IF NOT EXISTS chatlog(email TEXT, convo TEXT, role TEXT, content TEXT, created DOUBLE PRECISION)")
+run("CREATE INDEX IF NOT EXISTS chatlog_email ON chatlog(email)")
+
+def log_msg(email, convo, role, content):
+    """Signed-in chats are stored so the owner can review them (users are told in the site footer)."""
+    try:
+        run("INSERT INTO chatlog VALUES(?,?,?,?,?)", (email, convo, role, content, time.time()))
+    except Exception:
+        pass
 
 
 # ---------- helpers ----------
@@ -157,6 +167,7 @@ class Msg(BaseModel):
 
 class Chat(BaseModel):
     messages: list[Msg]
+    convo: str = ""
 
 @app.post("/api/chat")
 def chat(req: Request, body: Chat):
@@ -175,8 +186,13 @@ def chat(req: Request, body: Chat):
         new_anon = req.cookies.get("wanon") or uuid.uuid4().hex
         key = f"anon:{new_anon}"
     bump(key); bump(f"ip:{client_ip(req)}:{today()}"); bump(f"global:{today()}")
+    user = current_user(req)
+    convo = re.sub(r"[^A-Za-z0-9]", "", body.convo)[:40] or "none"
+    if user:
+        log_msg(user, convo, "user", msgs[-1]["content"])
 
     def gen():
+        parts = []
         try:
             extra = {"reasoning_effort": "low"} if "gpt-oss" in MODEL else {}  # keeps replies fast
             stream = client.chat.completions.create(
@@ -184,7 +200,10 @@ def chat(req: Request, body: Chat):
                 messages=[{"role": "system", "content": SYSTEM}] + msgs)
             for chunk in stream:
                 if chunk.choices and chunk.choices[0].delta.content:
+                    parts.append(chunk.choices[0].delta.content)
                     yield chunk.choices[0].delta.content
+            if user and parts:
+                log_msg(user, convo, "assistant", "".join(parts)[:20000])
         except RateLimitError:
             yield "\n\nWallaceAI is very busy right now. Please try again in a minute."
         except Exception:
@@ -197,12 +216,98 @@ def chat(req: Request, body: Chat):
     return resp
 
 
+# ---------- owner (CEO) panel ----------
+_admin_fails = {}
+
+def _asign(b): return sign("admin:" + b)
+
+def is_admin(req: Request):
+    if not ADMIN_PASSWORD: return False
+    try:
+        b, sig = req.cookies.get("wadmin", "").split(".")
+        if not hmac.compare_digest(sig, _asign(b)): return False
+        return int(base64.urlsafe_b64decode(b).decode()) > time.time()
+    except Exception:
+        return False
+
+class AdminLogin(BaseModel):
+    password: str
+
+@app.post("/api/admin/login")
+def admin_login(req: Request, a: AdminLogin):
+    if not ADMIN_PASSWORD:
+        return JSONResponse({"error": "disabled"}, 404)
+    ip, now = client_ip(req), time.time()
+    fails = [t for t in _admin_fails.get(ip, []) if now - t < 900]
+    if len(fails) >= 5:
+        return JSONResponse({"error": "Too many tries. Wait 15 minutes."}, 429)
+    if not hmac.compare_digest(a.password.encode(), ADMIN_PASSWORD.encode()):
+        _admin_fails[ip] = fails + [now]
+        return JSONResponse({"error": "Wrong password."}, 401)
+    b = base64.urlsafe_b64encode(str(int(now) + 12*3600).encode()).decode()
+    resp = JSONResponse({"ok": True})
+    resp.set_cookie("wadmin", f"{b}.{_asign(b)}", max_age=12*3600, httponly=True, samesite="strict", secure=SECURE)
+    return resp
+
+@app.post("/api/admin/logout")
+def admin_logout():
+    resp = JSONResponse({"ok": True}); resp.delete_cookie("wadmin"); return resp
+
+@app.get("/api/admin/stats")
+def admin_stats(req: Request):
+    if not is_admin(req): return JSONResponse({"error": "unauthorized"}, 401)
+    now = time.time()
+    days = [(date.today() - timedelta(days=i)).isoformat() for i in range(6, -1, -1)]
+    tk = today()
+    top = run("SELECT k, n FROM usage WHERE k LIKE ? ORDER BY n DESC LIMIT 5", (f"user:%:{tk}",), all=True)
+    return {
+        "total_users": run("SELECT COUNT(*) FROM users", one=True)[0],
+        "new_7d": run("SELECT COUNT(*) FROM users WHERE created > ?", (now - 7*86400,), one=True)[0],
+        "visitors": run("SELECT COUNT(*) FROM usage WHERE k LIKE ?", ("anon:%",), one=True)[0],
+        "messages_today": count(f"global:{tk}"),
+        "daily_cap": GLOBAL_DAILY_CAP,
+        "daily": [{"day": d, "n": count(f"global:{d}")} for d in days],
+        "top_today": [{"email": k[5:-(len(tk) + 1)], "n": n} for k, n in top],
+        "config": {"model": MODEL, "free_messages": FREE_MESSAGES, "member_daily": MEMBER_DAILY, "ip_daily_cap": IP_DAILY_CAP},
+    }
+
+@app.get("/api/admin/users")
+def admin_users(req: Request):
+    if not is_admin(req): return JSONResponse({"error": "unauthorized"}, 401)
+    rows = run("SELECT u.email, u.created, (SELECT COUNT(*) FROM chatlog c WHERE c.email = u.email) "
+               "FROM users u ORDER BY u.created DESC LIMIT 500", all=True)
+    return [{"email": e, "created": c, "messages": n} for e, c, n in rows]
+
+@app.get("/api/admin/chats")
+def admin_chats(req: Request, email: str):
+    if not is_admin(req): return JSONResponse({"error": "unauthorized"}, 401)
+    rows = run("SELECT convo, role, content, created FROM chatlog WHERE email=? ORDER BY created DESC LIMIT 2000",
+               (email.strip().lower(),), all=True)
+    return [{"convo": c, "role": r, "content": t, "created": ts} for c, r, t, ts in reversed(rows)]
+
+class DelUser(BaseModel):
+    email: str
+
+@app.post("/api/admin/delete_user")
+def admin_delete_user(req: Request, d: DelUser):
+    if not is_admin(req): return JSONResponse({"error": "unauthorized"}, 401)
+    run("DELETE FROM users WHERE email=?", (d.email.strip().lower(),))
+    run("DELETE FROM chatlog WHERE email=?", (d.email.strip().lower(),))
+    return {"ok": True}
+
+@app.get("/admin")
+def admin_page():
+    if not ADMIN_PASSWORD:
+        return JSONResponse({"error": "not found"}, 404)
+    return FileResponse("static/admin.html")
+
+
 # ---------- frontend ----------
 # If the website files were uploaded loose (no "static" folder), build the folder automatically.
 if not os.path.isdir("static"):
     import shutil
     os.makedirs("static")
-    for f in ("index.html", "app.js", "style.css", "logo.png"):
+    for f in ("index.html", "app.js", "style.css", "logo.png", "admin.html"):
         if os.path.exists(f):
             shutil.copy(f, os.path.join("static", f))
 
