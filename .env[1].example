@@ -1,0 +1,11 @@
+# --- Local testing only. On Render you enter these as Environment Variables instead. ---
+API_KEY=paste-your-free-groq-key-here
+BASE_URL=https://api.groq.com/openai/v1
+MODEL=llama-3.3-70b-versatile
+SECRET_KEY=paste-a-long-random-string-here
+# Leave DATABASE_URL empty locally (uses a local file). On Render paste your Neon connection string.
+DATABASE_URL=
+FREE_MESSAGES=10
+MEMBER_DAILY=20
+GLOBAL_DAILY_CAP=200
+PRODUCTION=0
