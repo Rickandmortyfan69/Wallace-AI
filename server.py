@@ -20,6 +20,8 @@ IP_DAILY_CAP = int(os.getenv("IP_DAILY_CAP", 40))         # anti-abuse, per IP, 
 SECRET = os.getenv("SECRET_KEY") or secrets.token_hex(32)  # set a fixed one in production!
 DB_PATH = os.getenv("DB_PATH", "wallace.db")
 SECURE = os.getenv("PRODUCTION", "0") == "1"
+ROBLOX_URL = os.getenv("ROBLOX_URL", "").strip()            # your Roblox profile link (optional)
+VISITOR_LOG_DAYS = int(os.getenv("VISITOR_LOG_DAYS", 30))   # how long visitor chat logs are kept
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "")  # owner panel is OFF unless this is set
 
 SYSTEM = (
@@ -64,8 +66,10 @@ run("CREATE TABLE IF NOT EXISTS usage(k TEXT PRIMARY KEY, n INTEGER)")
 run("CREATE TABLE IF NOT EXISTS chatlog(email TEXT, convo TEXT, role TEXT, content TEXT, created DOUBLE PRECISION)")
 run("CREATE INDEX IF NOT EXISTS chatlog_email ON chatlog(email)")
 
+run("DELETE FROM chatlog WHERE email LIKE ? AND created < ?", ("anon:%", time.time() - VISITOR_LOG_DAYS * 86400))
+
 def log_msg(email, convo, role, content):
-    """Wallace team is not responsible for any failures or liabilities you create. (users are told in the site footer)."""
+    """Chats are stored so the owner can review them (visitors are told in the site footer)."""
     try:
         run("INSERT INTO chatlog VALUES(?,?,?,?,?)", (email, convo, role, content, time.time()))
     except Exception:
@@ -127,10 +131,43 @@ def set_session(resp, email):
 
 
 # ---------- API ----------
+def roblox_url():
+    from urllib.parse import urlparse
+    u = urlparse(ROBLOX_URL)
+    return ROBLOX_URL if u.scheme == "https" and u.hostname in ("www.roblox.com", "roblox.com") else ""
+
+def who_key(req: Request):
+    u = current_user(req)
+    if u: return f"user:{u}"
+    aid = req.cookies.get("wanon")
+    return f"anon:{aid}" if aid else None
+
 @app.get("/api/status")
 def status(req: Request):
     _, used, limit = quota(req)
-    return {"remaining": max(0, limit - used), "signed_in": bool(current_user(req)), "email": current_user(req)}
+    w = who_key(req)
+    return {"remaining": max(0, limit - used), "signed_in": bool(current_user(req)), "email": current_user(req),
+            "roblox_url": roblox_url(), "bonus_claimed": bool(w and count(f"claimed:{w}"))}
+
+@app.post("/api/claim_bonus")
+def claim_bonus(req: Request):
+    """Honor system: out of messages + clicked the Roblox follow button = 10 extra messages, once per person."""
+    if not roblox_url():
+        return JSONResponse({"error": "Not available."}, 404)
+    w = who_key(req)
+    if not w:
+        return JSONResponse({"error": "Send a message first."}, 400)
+    if count(f"claimed:{w}"):
+        return JSONResponse({"error": "You already claimed your bonus messages."}, 409)
+    key, used, limit = quota(req)
+    if used < limit:
+        return JSONResponse({"error": "You still have messages left."}, 400)
+    run("UPDATE usage SET n=? WHERE k=?", (limit - 10, key))  # exactly 10 more messages
+    _, used2, limit2 = quota(req)
+    if used2 >= limit2:
+        return JSONResponse({"error": "Your network hit its daily limit. Please try again tomorrow."}, 429)
+    bump(f"claimed:{w}")
+    return {"ok": True}
 
 class Auth(BaseModel):
     email: str
@@ -188,8 +225,8 @@ def chat(req: Request, body: Chat):
     bump(key); bump(f"ip:{client_ip(req)}:{today()}"); bump(f"global:{today()}")
     user = current_user(req)
     convo = re.sub(r"[^A-Za-z0-9]", "", body.convo)[:40] or "none"
-    if user:
-        log_msg(user, convo, "user", msgs[-1]["content"])
+    who = user or key  # signed-in email, or "anon:<visitor id>"
+    log_msg(who, convo, "user", msgs[-1]["content"])
 
     def gen():
         parts = []
@@ -202,8 +239,8 @@ def chat(req: Request, body: Chat):
                 if chunk.choices and chunk.choices[0].delta.content:
                     parts.append(chunk.choices[0].delta.content)
                     yield chunk.choices[0].delta.content
-            if user and parts:
-                log_msg(user, convo, "assistant", "".join(parts)[:20000])
+            if parts:
+                log_msg(who, convo, "assistant", "".join(parts)[:20000])
         except RateLimitError:
             yield "\n\nWallaceAI is very busy right now. Please try again in a minute."
         except Exception:
@@ -284,6 +321,13 @@ def admin_chats(req: Request, email: str):
     rows = run("SELECT convo, role, content, created FROM chatlog WHERE email=? ORDER BY created DESC LIMIT 2000",
                (email.strip().lower(),), all=True)
     return [{"convo": c, "role": r, "content": t, "created": ts} for c, r, t, ts in reversed(rows)]
+
+@app.get("/api/admin/visitors")
+def admin_visitors(req: Request):
+    if not is_admin(req): return JSONResponse({"error": "unauthorized"}, 401)
+    rows = run("SELECT email, COUNT(*), MIN(created), MAX(created) FROM chatlog WHERE email LIKE ? "
+               "GROUP BY email ORDER BY MAX(created) DESC LIMIT 300", ("anon:%",), all=True)
+    return [{"id": e, "messages": n, "first": a, "last": b} for e, n, a, b in rows]
 
 class DelUser(BaseModel):
     email: str
