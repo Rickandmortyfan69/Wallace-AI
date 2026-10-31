@@ -75,3 +75,6 @@ a.newside{display:block;text-align:center;width:100%;margin-bottom:10px;color:va
 .wide{width:100%;margin-top:8px}
 .btn{display:block;text-align:center;text-decoration:none;padding:11px;border-radius:11px;margin-top:6px}
 @media(max-width:760px){#rbx{display:none!important}}
+
+.gen{max-width:100%;border-radius:12px;border:1px solid var(--line);display:block;margin-bottom:8px}
+.body a.ghost{margin-top:4px;font-size:13px}
