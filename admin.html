@@ -73,7 +73,7 @@ async function load(){
   const s=await r.json();
   $('login').hidden=true;if($('viewer').hidden)$('panel').hidden=false;
   const k=(a,b,c)=>`<div class="card"><div class="sub">${a}</div><div class="big">${b}</div><div class="sub">${c||''}</div></div>`;
-  $('kpis').innerHTML=k('Total accounts',s.total_users,'+'+s.new_7d+' in the last 7 days')+k('Messages today',s.messages_today,'of '+s.daily_cap+' daily cap')+k('Visitors who chatted',s.visitors,'all time');
+  $('kpis').innerHTML=k('Total accounts',s.total_users,'+'+s.new_7d+' in the last 7 days')+k('Messages today',s.messages_today,'of '+s.daily_cap+' daily cap')+k('Visitors who chatted',s.visitors,'all time')+k('Images today',s.images_today,'of '+s.image_cap+' daily cap');
   const max=Math.max(1,...s.daily.map(d=>d.n));
   $('bars').innerHTML=s.daily.map(d=>`<div class="bar" style="height:${Math.round(d.n/max*100)}%"><span>${d.n}</span></div>`).join('');
   $('lbl').innerHTML=s.daily.map(d=>`<div>${esc(d.day.slice(5))}</div>`).join('');
