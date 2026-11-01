@@ -23,7 +23,8 @@ main{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:32p
 /* ---------- sidebar ---------- */
 aside{display:flex;flex-direction:column;min-height:0;background:var(--surface);border-right:1px solid var(--line);padding:20px 14px 14px}
 .brand{padding:4px 8px 20px}
-.brand img{display:block;width:128px;height:auto}
+.logo{background:var(--logo) no-repeat left center/contain;aspect-ratio:320/200}
+.brand .logo{width:128px}
 .newchat{display:flex;align-items:center;gap:10px;width:100%;min-height:42px;padding:0 12px;background:none;border:1px solid var(--line);border-radius:8px;text-align:left;font-weight:500}
 .newchat:hover{border-color:var(--accent)}
 .newchat svg{flex:none;color:var(--muted)}
@@ -44,7 +45,7 @@ aside{display:flex;flex-direction:column;min-height:0;background:var(--surface);
 
 /* ---------- top bar (phones/tablets) ---------- */
 .topbar{display:none;align-items:center;justify-content:space-between;min-height:60px;padding:env(safe-area-inset-top,0px) 8px 0;border-bottom:1px solid var(--line);background:var(--bg)}
-.topbar .tmark{height:44px;width:auto;padding:2px 0}
+.topbar .tmark{height:44px;background-position:center;margin:2px 0}
 .icon{display:grid;place-items:center;width:44px;height:44px;border:0;border-radius:10px;background:none;color:var(--text)}
 .icon:hover{background:var(--raised)}
 .scrim{display:none}
