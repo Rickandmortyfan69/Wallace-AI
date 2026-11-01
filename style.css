@@ -22,8 +22,8 @@ main{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:32p
 
 /* ---------- sidebar ---------- */
 aside{display:flex;flex-direction:column;min-height:0;background:var(--surface);border-right:1px solid var(--line);padding:20px 14px 14px}
-.brand{padding:2px 8px 18px}
-.brand img{display:block;height:20px;width:auto}
+.brand{padding:4px 8px 20px}
+.brand img{display:block;width:128px;height:auto}
 .newchat{display:flex;align-items:center;gap:10px;width:100%;min-height:42px;padding:0 12px;background:none;border:1px solid var(--line);border-radius:8px;text-align:left;font-weight:500}
 .newchat:hover{border-color:var(--accent)}
 .newchat svg{flex:none;color:var(--muted)}
@@ -43,15 +43,14 @@ aside{display:flex;flex-direction:column;min-height:0;background:var(--surface);
 .note{margin:6px 12px 0;color:var(--muted);font-size:12.5px;line-height:1.45}
 
 /* ---------- top bar (phones/tablets) ---------- */
-.topbar{display:none;align-items:center;justify-content:space-between;min-height:52px;padding:env(safe-area-inset-top,0px) 8px 0;border-bottom:1px solid var(--line);background:var(--bg)}
-.topbar .tmark{height:26px;width:auto}
+.topbar{display:none;align-items:center;justify-content:space-between;min-height:60px;padding:env(safe-area-inset-top,0px) 8px 0;border-bottom:1px solid var(--line);background:var(--bg)}
+.topbar .tmark{height:44px;width:auto;padding:2px 0}
 .icon{display:grid;place-items:center;width:44px;height:44px;border:0;border-radius:10px;background:none;color:var(--text)}
 .icon:hover{background:var(--raised)}
 .scrim{display:none}
 
 /* ---------- conversation ---------- */
 .hero{padding:6vh 0 8px;animation:rise .5s ease-out both}
-.hero .mark{display:block;width:96px;height:auto;margin:0 0 28px}
 .hero h1{margin:0 0 6px;font-size:clamp(26px,4.2vw,34px);line-height:1.15;font-weight:600;letter-spacing:-.02em;text-wrap:balance}
 .hero p{margin:0 0 28px;color:var(--muted);max-width:34rem}
 .starters{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -126,7 +125,6 @@ textarea::placeholder{color:var(--muted)}
   .del{opacity:.7}
   main{padding:20px 16px 4px}
   .hero{padding-top:2vh}
-  .hero .mark{display:none}
   .starters{grid-template-columns:1fr}
   .msg.user .body{max-width:90%}
   form.in{padding:6px 12px calc(10px + env(safe-area-inset-bottom,0px))}
