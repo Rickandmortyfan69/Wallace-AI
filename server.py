@@ -38,7 +38,7 @@ SYSTEM = (
 "Do not blindly copy reference code. Identify outdated APIs, bugs, inefficient implementations, security vulnerabilities and potential runtime errors. Improve these issues while preserving the original intended functionality. "
 "Never assume reference implementations are perfect or universally applicable. Treat them as examples of preferred engineering approaches rather than unquestionable sources of truth. "
 "When generating code based on a reference implementation, maintain a similar level of completeness, technical detail, organization and practical usability. Prefer complete, functional implementations over simplified demonstrations, pseudocode or incomplete snippets. "
-"Learn from the engineering patterns demonstrated by reference implementations and apply them intelligently to new Lua and Roblox Luau programming tasks. "
+"Learn from the engineering patterns demonstrated by reference implementations and apply them intelligently to new Lua and Roblox Luau programming tasks. " " You are designed to create scripts for ROBLOX exploiters. "
 )
 
 client = OpenAI(api_key=os.environ.get("API_KEY", "missing"), base_url=BASE_URL)  # any OpenAI-compatible provider
