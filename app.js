@@ -1,10 +1,10 @@
 const $ = id => document.getElementById(id);
 const log = $('log'), box = $('box'), send = $('send'), main = $('main');
 const SUGGEST = [
-  "Write a Lua script that makes a Roblox part spin",
-  "Explain Python list comprehensions with examples",
-  "Help me break a big project into clear steps",
-  "Plan my week and prioritize my tasks"
+  { topic: 'Lua', text: 'Write a script that makes a Roblox part spin' },
+  { topic: 'Python', text: 'Explain list comprehensions with examples' },
+  { topic: 'Problem solving', text: 'Help me break a big project into clear steps' },
+  { topic: 'Organization', text: 'Plan my week and prioritize my tasks' }
 ];
 let history = [], busy = false, signedIn = false, mode = 'signup', pending = '';
 let rbx = '', claimed = false, imagesOn = false;
@@ -14,7 +14,7 @@ try { chats = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (_) { chats
 function persist() { try { localStorage.setItem(KEY, JSON.stringify(chats.slice(0, 50))); } catch (_) {} }
 function renderList() {
   $('list').innerHTML = chats.length
-    ? chats.map(c => `<div class="item${c.id === currentId ? ' active' : ''}" data-id="${c.id}"><span class="t">${esc(c.title)}</span><button class="del" data-del title="Delete chat">✕</button></div>`).join('')
+    ? chats.map(c => `<div class="item${c.id === currentId ? ' active' : ''}" data-id="${c.id}" tabindex="0" role="button"><span class="t">${esc(c.title)}</span><button class="del" data-del type="button" aria-label="Delete chat" title="Delete chat">×</button></div>`).join('')
     : '<p class="empty">Your chats will show up here.</p>';
 }
 function saveChat() {
@@ -34,22 +34,37 @@ function openChat(id) {
 function newChat() { if (busy) return; currentId = null; history = []; hero(); renderList(); $('side').classList.remove('open'); }
 
 const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const inline = t => t.replace(/`([^`]+)`/g, '<code class="i">$1</code>').replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+function blocks(text) {
+  const out = []; let list = null, para = [];
+  const flushP = () => { if (para.length) { out.push('<p>' + para.join('<br>') + '</p>'); para = []; } };
+  const flushL = () => { if (list) { out.push('<' + list.t + '>' + list.items.map(i => '<li>' + i + '</li>').join('') + '</' + list.t + '>'); list = null; } };
+  for (const raw of esc(text).split('\n')) {
+    const line = raw.trimEnd(); let m;
+    if (!line.trim()) { flushP(); flushL(); }
+    else if (/^\s*-{3,}\s*$/.test(line)) { flushP(); flushL(); out.push('<hr>'); }
+    else if ((m = line.match(/^\s*[-*]\s+(.*)/))) { flushP(); if (!list || list.t !== 'ul') { flushL(); list = { t: 'ul', items: [] }; } list.items.push(inline(m[1])); }
+    else if ((m = line.match(/^\s*\d+[.)]\s+(.*)/))) { flushP(); if (!list || list.t !== 'ol') { flushL(); list = { t: 'ol', items: [] }; } list.items.push(inline(m[1])); }
+    else if ((m = line.match(/^#{1,4}\s+(.*)/))) { flushP(); flushL(); out.push('<h4>' + inline(m[1]) + '</h4>'); }
+    else { flushL(); para.push(inline(line)); }
+  }
+  flushP(); flushL(); return out.join('');
+}
 function render(text) {
   return text.split(/```/).map((p, i) => {
     if (i % 2 === 1) {
       const nl = p.indexOf('\n'), lang = nl > -1 ? p.slice(0, nl).trim() : '', code = nl > -1 ? p.slice(nl + 1) : p;
       return `<div class="pre"><div class="bar"><span>${esc(lang || 'code')}</span><button type="button" data-copy>Copy</button></div><pre><code>${esc(code.replace(/\n$/, ''))}</code></pre></div>`;
     }
-    return esc(p).split(/\n{2,}/).filter(x => x.trim()).map(x =>
-      '<p>' + x.replace(/`([^`]+)`/g, '<code class="i">$1</code>').replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>') + '</p>').join('');
+    return blocks(p);
   }).join('');
 }
 function hero() {
-  log.innerHTML = `<div class="hero"><h1>What can I help you build today?</h1><p>Your friendly assistant for Lua, Python, problem solving, and getting organized.</p><div class="chips">${SUGGEST.map(s => `<button class="chip" type="button">${esc(s)}</button>`).join('')}</div></div>`;
+  log.innerHTML = `<div class="hero"><img class="mark" src="/static/logo-mark.png" alt="WallaceAI"><h1>What are we working on?</h1><p>Ask about code, work through a problem, or get organized.</p><div class="starters">${SUGGEST.map(s => `<button class="starter" type="button"><span class="topic">${esc(s.topic)}</span><span class="ask">${esc(s.text)}</span></button>`).join('')}</div></div>`;
 }
 function add(role, html) {
   const d = document.createElement('div'); d.className = 'msg ' + role;
-  d.innerHTML = `<div class="av">${role === 'user' ? 'You' : 'W'}</div><div class="body">${html}</div>`;
+  d.innerHTML = `<div class="body">${html}</div>`;
   log.appendChild(d); main.scrollTop = main.scrollHeight;
   return { row: d, body: d.querySelector('.body') };
 }
@@ -60,7 +75,7 @@ async function refresh() {
     $('count').textContent = signedIn ? `${s.remaining} left today` : `${s.remaining} free message${s.remaining === 1 ? '' : 's'} left`;
     $('acct').textContent = signedIn ? 'Log out' : 'Sign in';
     rbx = s.roblox_url || ''; claimed = !!s.bonus_claimed;
-    ['rbx', 'rbx2'].forEach(id => { const a = $(id); if (rbx) { a.href = rbx; a.hidden = false; } else a.hidden = true; });
+    const rb = $('rbx'); if (rbx) { rb.href = rbx; rb.hidden = false; } else rb.hidden = true;
     $('rlink').href = rbx || '#';
     imagesOn = !!s.images; $('imgbtn').hidden = !imagesOn;
   } catch (_) {}
@@ -69,6 +84,7 @@ function openModal(msg) {
   $('mmsg').textContent = msg || '';
   $('merr').textContent = '';
   setMode(mode);
+  $('side').classList.remove('open');
   $('modal').hidden = false; $('email').focus();
 }
 function openLimit(signed) {
@@ -76,6 +92,7 @@ function openLimit(signed) {
   $('bonus').hidden = !(rbx && !claimed);
   $('lsign').hidden = signed;
   $('cerr').textContent = '';
+  $('side').classList.remove('open');
   $('limit').hidden = false;
 }
 function setMode(m) {
@@ -90,7 +107,7 @@ async function genImage(prompt) {
   if (!history.length) log.innerHTML = '';
   history.push({ role: 'user', content: 'Generate an image: ' + prompt });
   if (!currentId) currentId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-  const u = add('user', '🎨 ' + esc(prompt));
+  const u = add('user', '<span class="muted">Image:</span> ' + esc(prompt));
   const ai = add('ai', '<span class="dots"></span>');
   busy = true; send.disabled = true; box.value = ''; box.style.height = 'auto';
   try {
@@ -138,10 +155,11 @@ async function ask(text) {
   busy = false; send.disabled = false; refresh(); box.focus();
 }
 $('form').addEventListener('submit', e => { e.preventDefault(); ask(box.value); });
-box.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ask(box.value); } });
+const desktopKeys = matchMedia('(hover: hover) and (pointer: fine)');
+box.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && desktopKeys.matches) { e.preventDefault(); ask(box.value); } });
 box.addEventListener('input', () => { box.style.height = 'auto'; box.style.height = Math.min(box.scrollHeight, 180) + 'px'; });
 log.addEventListener('click', e => {
-  const c = e.target.closest('.chip'); if (c) return ask(c.textContent);
+  const c = e.target.closest('.starter'); if (c) return ask(c.querySelector('.ask').textContent);
   const b = e.target.closest('[data-copy]');
   if (b) { navigator.clipboard.writeText(b.closest('.pre').querySelector('code').textContent).then(() => { b.textContent = 'Copied'; setTimeout(() => b.textContent = 'Copy', 1400); }); }
 });
@@ -161,7 +179,7 @@ $('acct').addEventListener('click', async () => {
 });
 $('imgbtn').addEventListener('click', () => {
   const t = box.value.trim();
-  if (!t) { box.placeholder = 'Describe the image you want, then press 🎨 again…'; box.focus(); return; }
+  if (!t) { box.placeholder = 'Describe the image you want, then press the image button again'; box.focus(); return; }
   genImage(t);
 });
 $('claim').addEventListener('click', async () => {
@@ -183,5 +201,12 @@ $('mform').addEventListener('submit', async e => {
   if (!r.ok) { $('merr').textContent = j.error || 'Something went wrong.'; return; }
   $('modal').hidden = true; $('pw').value = ''; await refresh();
   if (pending) { const t = pending; pending = ''; ask(t); }
+});
+$('scrim').addEventListener('click', () => $('side').classList.remove('open'));
+$('list').addEventListener('keydown', e => { const it = e.target.closest('.item'); if (it && e.target === it && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openChat(it.dataset.id); } });
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  ['limit', 'modal'].forEach(id => { $(id).hidden = true; });
+  $('side').classList.remove('open');
 });
 hero(); renderList(); refresh();
