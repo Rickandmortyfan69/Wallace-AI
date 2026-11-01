@@ -60,7 +60,7 @@ function render(text) {
   }).join('');
 }
 function hero() {
-  log.innerHTML = `<div class="hero"><img class="mark" src="/static/logo-mark.png" alt="WallaceAI"><h1>What are we working on?</h1><p>Ask about code, work through a problem, or get organized.</p><div class="starters">${SUGGEST.map(s => `<button class="starter" type="button"><span class="topic">${esc(s.topic)}</span><span class="ask">${esc(s.text)}</span></button>`).join('')}</div></div>`;
+  log.innerHTML = `<div class="hero"><h1>What are we working on?</h1><p>Ask about code, work through a problem, or get organized.</p><div class="starters">${SUGGEST.map(s => `<button class="starter" type="button"><span class="topic">${esc(s.topic)}</span><span class="ask">${esc(s.text)}</span></button>`).join('')}</div></div>`;
 }
 function add(role, html) {
   const d = document.createElement('div'); d.className = 'msg ' + role;
