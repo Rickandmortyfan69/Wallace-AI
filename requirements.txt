@@ -1,6 +1,6 @@
 fastapi
 uvicorn
-openai
+openai>=1.0.0,<2.0.0
 httpx
 python-dotenv
 psycopg2-binary
