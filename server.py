@@ -1,7 +1,8 @@
 """WallaceAI backend: keeps your API key private, enforces the free-message limit,
 and handles email sign-up. Run: uvicorn server:app"""
-import base64, hashlib, hmac, os, re, secrets, sqlite3, time, uuid
+import base64, hashlib, hmac, os, re, secrets, sqlite3, time, uuid, json
 from datetime import date, timedelta
+from urllib.parse import quote_plus
 
 import httpx
 from openai import OpenAI, RateLimitError
@@ -54,6 +55,84 @@ SYSTEM = (
 
 client = OpenAI(api_key=os.environ.get("API_KEY", "missing"), base_url=BASE_URL)  # any OpenAI-compatible provider
 app = FastAPI()
+
+SEARCH_KEY = os.getenv("SEARCH_KEY", "").strip()   # optional SerpAPI key for web search
+MAX_FETCH_BYTES = 30_000  # cap URL content size
+
+def web_search(query: str) -> str:
+    """Search the web via SerpAPI (if key set) or DuckDuckGo HTML fallback."""
+    try:
+        if SEARCH_KEY:
+            url = f"https://serpapi.com/search.json?q={quote_plus(query)}&api_key={SEARCH_KEY}&num=5"
+            r = httpx.get(url, timeout=8)
+            data = r.json()
+            results = data.get("organic_results", [])
+            if results:
+                out = []
+                for res in results[:5]:
+                    out.append(f"**{res.get('title','')}**\n{res.get('link','')}\n{res.get('snippet','')}")
+                return "\n\n".join(out)
+        # DuckDuckGo instant answer fallback (no key needed)
+        url = f"https://api.duckduckgo.com/?q={quote_plus(query)}&format=json&no_html=1&skip_disambig=1"
+        r = httpx.get(url, timeout=8, headers={"User-Agent": "WallaceAI/1.0"})
+        data = r.json()
+        abstract = data.get("AbstractText", "")
+        related = [f"- {t.get('Text','')}: {t.get('FirstURL','')}" for t in data.get("RelatedTopics", [])[:5] if "Text" in t]
+        parts = []
+        if abstract:
+            parts.append(abstract)
+        if related:
+            parts.append("Related:\n" + "\n".join(related))
+        return "\n\n".join(parts) if parts else "No results found."
+    except Exception as e:
+        return f"Search failed: {e}"
+
+def fetch_url(url: str) -> str:
+    """Fetch a URL and return its text content."""
+    try:
+        headers = {"User-Agent": "WallaceAI/1.0"}
+        r = httpx.get(url, timeout=10, follow_redirects=True, headers=headers)
+        content_type = r.headers.get("content-type", "")
+        if "text" not in content_type and "json" not in content_type:
+            return f"Cannot read binary content at {url}"
+        text = r.text[:MAX_FETCH_BYTES]
+        # strip HTML tags roughly
+        text = re.sub(r"<style[^>]*>.*?</style>", " ", text, flags=re.DOTALL)
+        text = re.sub(r"<script[^>]*>.*?</script>", " ", text, flags=re.DOTALL)
+        text = re.sub(r"<[^>]+>", " ", text)
+        text = re.sub(r"[ \t]{3,}", " ", text)
+        text = re.sub(r"\n{4,}", "\n\n", text)
+        return text.strip()[:MAX_FETCH_BYTES]
+    except Exception as e:
+        return f"Could not fetch URL: {e}"
+
+def inject_tools(user_message: str) -> tuple[str, str]:
+    """
+    Check if the user message references a URL or asks to search.
+    Returns (modified_message, tool_result_prefix).
+    """
+    injected = []
+
+    # detect bare URLs
+    urls = re.findall(r'https?://[^\s\'"<>]+', user_message)
+    for url in urls[:2]:  # max 2 URLs per message
+        content = fetch_url(url)
+        injected.append(f"[Content fetched from {url}]:\n{content}\n")
+
+    # detect search intent when no URL given
+    search_triggers = re.compile(
+        r'\b(search|look up|google|find|what is|who is|latest|current|news about|check online)\b',
+        re.IGNORECASE
+    )
+    if search_triggers.search(user_message) and not urls:
+        # extract the query: strip trigger words, take rest of message
+        query = re.sub(search_triggers, '', user_message).strip()
+        query = re.sub(r'[^\w\s\-]', '', query).strip() or user_message
+        results = web_search(query[:200])
+        injected.append(f"[Web search results for '{query}']:\n{results}\n")
+
+    prefix = "\n\n".join(injected)
+    return user_message, prefix
 # Database: free Neon Postgres in production (DATABASE_URL set), local SQLite file otherwise.
 DATABASE_URL = os.getenv("DATABASE_URL")
 if DATABASE_URL:
@@ -314,9 +393,16 @@ def chat(req: Request, body: Chat):
         parts = []
         try:
             extra = {}
+            # inject web search / URL fetch results into last user message
+            last_user = msgs[-1]["content"]
+            _, tool_prefix = inject_tools(last_user)
+            augmented_msgs = msgs[:-1] + [{
+                "role": "user",
+                "content": (tool_prefix + "\n\n" + last_user) if tool_prefix else last_user
+            }]
             stream = client.chat.completions.create(
                 model=MODEL, max_tokens=2000, stream=True, extra_body=extra,
-                messages=[{"role": "system", "content": SYSTEM}] + msgs)
+                messages=[{"role": "system", "content": SYSTEM}] + augmented_msgs)
             for chunk in stream:
                 if chunk.choices and chunk.choices[0].delta.content:
                     parts.append(chunk.choices[0].delta.content)
