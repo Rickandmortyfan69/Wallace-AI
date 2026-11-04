@@ -1,10 +1,10 @@
 const $ = id => document.getElementById(id);
 const log = $('log'), box = $('box'), send = $('send'), main = $('main');
 const SUGGEST = [
-  { topic: 'Lua', text: 'Write a script that makes a Roblox part spin' },
-  { topic: 'Python', text: 'Explain list comprehensions with examples' },
-  { topic: 'Problem solving', text: 'Help me break a big project into clear steps' },
-  { topic: 'Organization', text: 'Plan my week and prioritize my tasks' }
+  { topic: 'fly', text: 'Write a fly script for Xeno with speed control and toggle' },
+  { topic: 'esp', text: 'Build a full ESP with boxes, names, distance and health bars' },
+  { topic: 'remote spy', text: 'Hook all RemoteEvents and log their arguments to output' },
+  { topic: 'auto-farm', text: 'Make an auto-farm loop with anti-AFK and disconnect recovery' }
 ];
 let history = [], busy = false, signedIn = false, mode = 'signup', pending = '';
 let rbx = '', claimed = false, imagesOn = false;
@@ -60,7 +60,7 @@ function render(text) {
   }).join('');
 }
 function hero() {
-  log.innerHTML = `<div class="hero"><h1>What are we working on?</h1><p>Ask about code, work through a problem, or get organized.</p><div class="starters">${SUGGEST.map(s => `<button class="starter" type="button"><span class="topic">${esc(s.topic)}</span><span class="ask">${esc(s.text)}</span></button>`).join('')}</div></div>`;
+  log.innerHTML = `<div class="hero"><h1>Your exploit assistant,<br><em>no limits.</em></h1><p>Write executor scripts, debug Lua, spy remotes, build GUIs — WallaceAI delivers complete, working code every time.</p><div class="starters">${SUGGEST.map(s => `<button class="starter" type="button"><span class="topic">${esc(s.topic)}</span><span class="ask">${esc(s.text)}</span></button>`).join('')}</div></div>`;
 }
 function add(role, html) {
   const d = document.createElement('div'); d.className = 'msg ' + role;
