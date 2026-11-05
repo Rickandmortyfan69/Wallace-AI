@@ -452,7 +452,7 @@ def chat(req: Request, body: Chat):
                 "content": (tool_prefix + "\n\n" + last_user) if tool_prefix else last_user
             }]
             stream = client.chat.completions.create(
-                model=MODEL, max_tokens=6000, stream=True, extra_body=extra,
+                model=MODEL, max_tokens=16000, stream=True, extra_body=extra,
                 messages=[{"role": "system", "content": SYSTEM}] + augmented_msgs)
             for chunk in stream:
                 if chunk.choices and chunk.choices[0].delta.content:
