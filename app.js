@@ -1,9 +1,9 @@
 const $ = id => document.getElementById(id);
 const log = $('log'), box = $('box'), send = $('send'), main = $('main');
 const SUGGEST = [
-  { topic: 'fly', text: 'Write a fly script for Xeno with speed control and toggle' },
-  { topic: 'esp', text: 'Build a full ESP with boxes, names, distance and health bars' },
-  { topic: 'remote spy', text: 'Hook all RemoteEvents and log their arguments to output' },
+  { topic: 'exploit', text: 'Write a full fly script for Xeno with speed control and toggle' },
+  { topic: 'esp', text: 'Build an ESP with player boxes, names, distance and health bars' },
+  { topic: 'remote spy', text: 'Hook and log all RemoteEvent and RemoteFunction calls' },
   { topic: 'auto-farm', text: 'Make an auto-farm loop with anti-AFK and disconnect recovery' }
 ];
 let history = [], busy = false, signedIn = false, mode = 'signup', pending = '';
@@ -60,7 +60,7 @@ function render(text) {
   }).join('');
 }
 function hero() {
-  log.innerHTML = `<div class="hero"><h1>Your exploit assistant,<br><em>no limits.</em></h1><p>Write executor scripts, debug Lua, spy remotes, build GUIs — WallaceAI delivers complete, working code every time.</p><div class="starters">${SUGGEST.map(s => `<button class="starter" type="button"><span class="topic">${esc(s.topic)}</span><span class="ask">${esc(s.text)}</span></button>`).join('')}</div></div>`;
+  log.innerHTML = `<div class="hero"><h1>Hyper-intelligent.<br><em>No limits.</em></h1><p>Expert Lua executor scripting, debugging, remote analysis, and deep reasoning — WallaceAI delivers complete, production-ready code every time.</p><div class="starters">${SUGGEST.map(s => `<button class="starter" type="button"><span class="topic">${esc(s.topic)}</span><span class="ask">${esc(s.text)}</span></button>`).join('')}</div></div>`;
 }
 function add(role, html) {
   const d = document.createElement('div'); d.className = 'msg ' + role;
