@@ -4,12 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>WallaceAI · CEO Panel</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<title>WallaceAI · Owner Panel</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
 <style>
-:root{color-scheme:dark;--bg:#050506;--panel:#0d0d0f;--line:#212126;--text:#f3f1ec;--mute:#8e8e99;--accent:#a9a9c0}
+:root{color-scheme:dark;--bg:#080808;--panel:#0e0e0e;--line:#222222;--text:#e8e3d8;--mute:#5a5a68;--accent:#c8c4ba}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 "IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;padding:20px;padding-bottom:calc(20px + env(safe-area-inset-bottom,0px))}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 "Inter",system-ui,-apple-system,"Segoe UI",sans-serif;padding:20px;padding-bottom:calc(20px + env(safe-area-inset-bottom,0px))}
 .wrap{max-width:980px;margin:0 auto}
 h1{font-size:22px;margin:0}h2{font-size:15px;margin:0 0 10px;color:var(--mute);font-weight:600}
 .top{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;margin-bottom:18px;gap:10px}
@@ -47,13 +47,13 @@ input.s{margin:0 0 10px}
 <body>
 <div class="wrap">
  <div id="login" class="login card">
-  <h1>CEO Panel</h1><p class="sub">Owner access only.</p>
+  <h1>Owner Panel</h1><p class="sub">Owner access only.</p>
   <input id="pw" type="password" placeholder="Admin password" autocomplete="current-password">
   <p class="err" id="err"></p>
   <button id="go" style="width:100%">Enter</button>
  </div>
  <div id="panel" hidden>
-  <div class="top"><h1>WallaceAI · CEO Panel</h1><div><button id="refresh">Refresh</button> <button id="out">Log out</button></div></div>
+  <div class="top"><h1>WallaceAI · Owner Panel</h1><div><button id="refresh">Refresh</button> <button id="out">Log out</button></div></div>
   <div class="grid" id="kpis"></div>
   <div class="card" style="margin-bottom:14px"><h2>Messages, last 7 days</h2><div class="bars" id="bars"></div><div class="lbl" id="lbl"></div></div>
   <div class="two">
@@ -64,7 +64,7 @@ input.s{margin:0 0 10px}
  </div>
  <div id="viewer" hidden>
   <div class="top"><h1 id="vtitle"></h1><button id="back">← Back</button></div>
-  <p class="sub">Private. Visitor chat logs are deleted automatically after 30 days.</p>
+  
   <div class="two vw"><div class="card"><h2>Conversations</h2><div id="convos"></div></div>
   <div class="card"><h2 id="ctitle">Messages</h2><div id="msgs"></div></div></div>
  </div>
