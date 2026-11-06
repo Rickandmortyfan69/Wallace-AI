@@ -313,11 +313,14 @@ def chat(req: Request, body: Chat):
     key, used, limit = quota(req)
     if used >= limit:
         return JSONResponse({"error": "limit", "signed_in": bool(current_user(req))}, 402)
+    # check if model supports vision (openrouter exposes this via model id hints)
+    # safe approach: build vision messages but fall back to text-only on 404
+    has_image = any(m.image for m in body.messages if m.role == "user")
     msgs = []
     for m in body.messages[-16:]:
         if m.role not in ("user", "assistant") or not m.content.strip():
             continue
-        if m.image and m.role == "user":
+        if m.image and m.role == "user" and has_image:
             msgs.append({"role": "user", "content": [
                 {"type": "image_url", "image_url": {"url": m.image}},
                 {"type": "text", "text": m.content[:8000]}
@@ -366,8 +369,29 @@ def chat(req: Request, body: Chat):
                 log_msg(who, convo, "assistant", "".join(parts)[:20000])
         except RateLimitError:
             yield "\n\nWallaceAI is very busy right now. Please try again in a minute."
-        except Exception:
-            import traceback; traceback.print_exc()  # shows the real reason in Render > Logs
+        except Exception as e:
+            err_str = str(e)
+            # model doesn't support vision — retry stripping images
+            if "image" in err_str.lower() and "404" in err_str:
+                try:
+                    text_msgs = [
+                        {"role": m["role"], "content": m["content"] if isinstance(m["content"], str) else " ".join(b["text"] for b in m["content"] if b["type"] == "text")}
+                        for m in msgs
+                    ]
+                    stream2 = client.chat.completions.create(
+                        model=MODEL, max_tokens=32000, stream=True, extra_body={},
+                        messages=[{"role": "system", "content": system_prompt}] + text_msgs)
+                    for chunk in stream2:
+                        if chunk.choices and chunk.choices[0].delta.content:
+                            parts.append(chunk.choices[0].delta.content)
+                            yield chunk.choices[0].delta.content
+                    if parts:
+                        log_msg(who, convo, "assistant", "".join(parts)[:20000])
+                    return
+                except Exception:
+                    yield "\n\nThis model doesn't support image input. Try asking your question in text, or switch to a vision-capable model."
+                    return
+            import traceback; traceback.print_exc()
             yield "\n\nSorry, WallaceAI hit an error. Please try again."
 
     resp = StreamingResponse(gen(), media_type="text/plain; charset=utf-8")
