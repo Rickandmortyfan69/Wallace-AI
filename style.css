@@ -116,13 +116,13 @@ form.in{padding:8px 24px calc(14px + env(safe-area-inset-bottom,0px))}
 .img-preview-item{position:relative}
 .img-preview-item img{max-height:72px;max-width:108px;border-radius:6px;border:1px solid var(--border);display:block}
 .img-preview-item .rm{position:absolute;top:-6px;right:-6px;width:18px;height:18px;border:0;border-radius:50%;background:var(--raised);border:1px solid var(--border);color:var(--text);font-size:11px;line-height:1;cursor:pointer;display:grid;place-items:center}
-.composer{display:flex;align-items:flex-end;gap:0;max-width:42rem;margin:0 auto;padding:10px 10px 10px 16px;background:var(--surface);border:1px solid var(--border);border-radius:12px;transition:border-color .15s}
+.composer{display:flex;align-items:flex-end;gap:0;max-width:42rem;margin:0 auto;padding:10px 10px 10px 10px;background:var(--surface);border:1px solid var(--border);border-radius:12px;transition:border-color .15s}
 .composer:focus-within{border-color:var(--border-hi)}
 textarea{flex:1;min-width:0;max-height:200px;padding:0;background:none;border:0;outline:0;resize:none;font-size:14.5px;line-height:1.55}
 textarea:focus-visible{outline:none}
 textarea::placeholder{color:var(--muted)}
-.composer-actions{display:flex;align-items:center;gap:4px;flex-none;padding-left:6px}
-.attach-btn{display:grid;place-items:center;width:34px;height:34px;border:0;border-radius:7px;background:none;color:var(--muted);font-size:20px;font-weight:300;line-height:1;transition:color .1s,background .1s}
+.composer-actions{display:flex;align-items:center;gap:4px;flex-none;padding-left:4px}
+.attach-btn{display:grid;place-items:center;flex:none;width:32px;height:32px;border:0;border-radius:7px;background:none;color:var(--muted);font-size:22px;font-weight:300;line-height:1;transition:color .1s,background .1s;padding:0 0 2px}
 .attach-btn:hover{color:var(--text);background:var(--raised)}
 .send-btn{display:grid;place-items:center;width:34px;height:34px;border:0;border-radius:7px;background:var(--accent);color:#000;transition:opacity .15s}
 .send-btn:disabled{opacity:.2;cursor:default}
