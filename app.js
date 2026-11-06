@@ -70,10 +70,29 @@ function render(text) {
   return text.split(/```/).map((p, i) => {
     if (i % 2 === 1) {
       const nl = p.indexOf('\n'), lang = nl > -1 ? p.slice(0, nl).trim() : '', code = nl > -1 ? p.slice(nl + 1) : p;
+      if (lang === 'artifact') {
+        const id = 'art-' + Math.random().toString(36).slice(2, 8);
+        const encoded = encodeURIComponent(code);
+        setTimeout(() => {
+          const fr = document.getElementById(id);
+          if (fr) {
+            fr.srcdoc = code;
+            fr.onload = () => { try { fr.style.height = Math.min(fr.contentDocument.body.scrollHeight + 32, 600) + 'px'; } catch(_){} };
+          }
+        }, 0);
+        return `<div class="artifact-wrap"><div class="artifact-bar"><span>⬡ artifact · live preview</span><button onclick="openFullArtifact(this)">Open full</button><button onclick="copyArtifactCode(this)" data-code="${encoded}">Copy HTML</button></div><iframe id="${id}" class="artifact-frame" sandbox="allow-scripts allow-same-origin" data-code="${encoded}"></iframe></div>`;
+      }
       return `<div class="pre"><div class="bar"><span>${esc(lang || 'code')}</span><button type="button" data-copy>Copy</button></div><pre><code>${esc(code.replace(/\n$/, ''))}</code></pre></div>`;
     }
     return blocks(p);
   }).join('');
+}
+function openFullArtifact(btn) {
+  const code = decodeURIComponent(btn.closest('.artifact-wrap').querySelector('iframe').dataset.code);
+  const w = window.open('', '_blank'); w.document.write(code); w.document.close();
+}
+function copyArtifactCode(btn) {
+  navigator.clipboard.writeText(decodeURIComponent(btn.dataset.code)).then(() => { btn.textContent = 'Copied'; setTimeout(() => btn.textContent = 'Copy HTML', 1400); });
 }
 function hero() {
   log.innerHTML = `<div class="hero"><h1>Hyper-intelligent.<br><em>No limits.</em></h1><p>Expert Lua executor scripting, debugging, remote analysis, and deep reasoning — WallaceAI delivers complete, production-ready code every time.</p><div class="starters">${SUGGEST.map(s => `<button class="starter" type="button"><span class="topic">${esc(s.topic)}</span><span class="ask">${esc(s.text)}</span></button>`).join('')}</div></div>`;
@@ -300,5 +319,59 @@ document.addEventListener('keydown', e => {
   ['limit','modal','settingsModal'].forEach(id => { $(id).hidden = true; });
   $('side').classList.remove('open');
 });
+
+// ── image upload ──
+let pendingImages = []; // [{dataUrl, base64, mime}]
+function renderImagePreviews() {
+  const wrap = $('imgPreviews');
+  wrap.innerHTML = pendingImages.map((img, i) =>
+    `<div class="img-preview"><img src="${img.dataUrl}" alt="upload ${i}"><button class="rm" data-idx="${i}" title="Remove">×</button></div>`
+  ).join('');
+}
+$('attachBtn').addEventListener('click', () => $('fileInput').click());
+$('fileInput').addEventListener('change', async e => {
+  for (const file of Array.from(e.target.files || [])) {
+    if (!file.type.startsWith('image/')) continue;
+    const dataUrl = await new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(file); });
+    const base64 = dataUrl.split(',')[1];
+    pendingImages.push({ dataUrl, base64, mime: file.type });
+  }
+  renderImagePreviews();
+  e.target.value = '';
+});
+$('imgPreviews').addEventListener('click', e => {
+  const btn = e.target.closest('[data-idx]');
+  if (btn) { pendingImages.splice(Number(btn.dataset.idx), 1); renderImagePreviews(); }
+});
+
+// patch ask() to include images
+const _origAsk = ask;
+async function ask(text) {
+  if (pendingImages.length > 0) {
+    const imgs = pendingImages.splice(0);
+    renderImagePreviews();
+    if (busy || !text.trim()) return;
+    if (!history.length) log.innerHTML = '';
+    history.push({ role: 'user', content: text, image: `data:${imgs[0].mime};base64,${imgs[0].base64}` });
+    if (!currentId) currentId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    const imgHtml = imgs.map(img => `<img src="${img.dataUrl}" style="max-height:120px;border-radius:6px;border:1px solid var(--border);margin-right:6px">`).join('');
+    const u = add('user', imgHtml + '<br>' + esc(text).replace(/\n/g, '<br>'));
+    const ai = add('ai', '<span class="dots"></span>');
+    busy = true; send.disabled = true; box.value = ''; box.style.height = 'auto';
+    try {
+      const r = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: history, convo: currentId }) });
+      if (r.status === 402) { history.pop(); u.row.remove(); ai.row.remove(); pending = text; const j = await r.json(); if (!history.length) hero(); await refresh(); openLimit(j.signed_in); throw 'limit'; }
+      if (r.status === 503) { history.pop(); ai.body.textContent = 'WallaceAI hit its daily limit. Come back tomorrow!'; throw 'limit'; }
+      if (!r.ok) throw new Error('bad');
+      const rd = r.body.getReader(), dec = new TextDecoder(); let acc = '';
+      for (;;) { const { done, value } = await rd.read(); if (done) break; acc += dec.decode(value, { stream: true }); ai.body.innerHTML = render(acc); main.scrollTop = main.scrollHeight; }
+      history.push({ role: 'assistant', content: acc });
+      saveChat();
+    } catch (e) { if (e !== 'limit') { history.pop(); ai.body.textContent = 'Something went wrong. Please try again.'; } }
+    busy = false; send.disabled = false; refresh(); box.focus();
+    return;
+  }
+  return _origAsk(text);
+}
 
 hero(); renderList(); refresh();
