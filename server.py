@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 load_dotenv()
-MODEL = os.getenv("MODEL", "google/gemma-3-27b-it:free")
+MODEL = os.getenv("MODEL", "nvidia/nemotron-3.5-super-vl:free")
 BASE_URL = os.getenv("BASE_URL", "https://api.groq.com/openai/v1")
 GLOBAL_DAILY_CAP = int(os.getenv("GLOBAL_DAILY_CAP", 100))  # stay under your free quota
 FREE_MESSAGES = int(os.getenv("FREE_MESSAGES", 10))       # per visitor, lifetime
